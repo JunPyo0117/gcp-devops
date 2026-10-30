@@ -1,0 +1,5 @@
+project_id = "your-google-cloud-project-id"
+
+# Defaults are Seoul (asia-northeast3) and zone asia-northeast3-a.
+# machine_type = "e2-micro"
+# worker_count = 2
