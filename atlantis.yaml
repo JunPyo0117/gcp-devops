@@ -1,0 +1,13 @@
+version: 3
+
+projects:
+  - name: gke-seoul
+    dir: .
+    workspace: default
+    autoplan:
+      enabled: true
+      when_modified:
+        - "*.tf"
+        - "*.tfvars"
+        - "*.hcl"
+        - ".terraform.lock.hcl"

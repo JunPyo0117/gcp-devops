@@ -12,10 +12,19 @@ GKE manages the Kubernetes control plane; it is not a VM that you size or admini
 
 ## Deploy
 
+Before initializing Terraform, configure a GCS bucket for the remote state. The bucket must already exist and be accessible to your Google credentials. The GCS backend supports state locking; enable object versioning on the bucket so previous state versions can be recovered.
+
+For local use, pass the bucket and state prefix to `terraform init` (replace the example bucket with your globally unique bucket name):
+
+```sh
+terraform init -backend-config="bucket=YOUR_UNIQUE_STATE_BUCKET" -backend-config="prefix=gke/terraform/state"
+```
+
+Then continue:
+
 ```sh
 cp terraform.tfvars.example terraform.tfvars
 # Edit terraform.tfvars and set project_id.
-terraform init
 terraform plan
 terraform apply
 ```
@@ -30,3 +39,14 @@ To remove the resources, run `terraform destroy`. API services are intentionally
 - The worker pool uses two `e2-micro` nodes by default, the smallest E2 shared-core VM size (0.25 sustained vCPU and 1 GiB memory). This is suitable for lightweight learning exercises, but the limited resources can make Kubernetes components and workloads slow or unstable. Change `machine_type` to `e2-small` if the cluster struggles.
 - The control plane endpoint and worker nodes use GKE defaults; this starter does not configure a private control plane, restricted authorized networks, autoscaling, or a Cloud NAT gateway.
 - This is a single-zone starter configuration. A zonal cluster has lower control-plane availability than a regional cluster. Regional clusters distribute the managed control plane across zones, so they do not map to “one master VM.”
+
+## Atlantis
+
+`atlantis.yaml` enables automatic plans for pull requests that change Terraform files. Atlantis does not automatically apply changes; an authorized reviewer must comment `atlantis apply` on the pull request.
+
+To run Atlantis, deploy an Atlantis server and configure its GitHub webhook credentials and repo allowlist for `github.com/JunPyo0117/gcp-devops`. Give the server identity the required Google Cloud permissions through Application Default Credentials or Workload Identity. Set these environment variables on the Atlantis server:
+
+- `TF_VAR_project_id`: the target Google Cloud project ID.
+- `TF_CLI_ARGS_init`: `-backend-config=bucket=YOUR_UNIQUE_STATE_BUCKET -backend-config=prefix=gke/terraform/state`
+
+Create the GCS state bucket before the first plan, enable object versioning, and grant the Atlantis identity access to it. Keep webhook secrets and credentials in the Atlantis host's secret manager/environment, never in this repository. The same backend bucket and prefix must be used for local Terraform runs and Atlantis.
