@@ -5,12 +5,12 @@ output "atlantis_ip" {
 
 output "atlantis_url" {
   description = "HTTPS URL for the Atlantis server."
-  value       = "https://${var.atlantis_domain}"
+  value       = "https://${local.atlantis_domain}"
 }
 
 output "github_webhook_url" {
   description = "HTTPS URL to use in the GitHub App webhook settings with SSL verification enabled."
-  value       = "https://${var.atlantis_domain}/events"
+  value       = "https://${local.atlantis_domain}/events"
 }
 
 output "iap_ssh_command" {

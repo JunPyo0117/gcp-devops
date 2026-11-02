@@ -1,4 +1,6 @@
 locals {
+  atlantis_domain = var.atlantis_domain != "" ? var.atlantis_domain : "${google_compute_address.atlantis.address}.nip.io"
+
   secret_ids = {
     github_app_key = var.github_app_key_secret_id
     webhook        = var.github_webhook_secret_id
@@ -138,7 +140,7 @@ resource "google_compute_instance" "atlantis" {
 
   metadata_startup_script = templatefile("${path.module}/startup.sh.tftpl", {
     project_id                     = var.project_id
-    atlantis_domain                = var.atlantis_domain
+    atlantis_domain                = local.atlantis_domain
     github_repository              = var.github_repository
     github_admin_user              = var.github_admin_user
     github_api_user                = var.github_api_user

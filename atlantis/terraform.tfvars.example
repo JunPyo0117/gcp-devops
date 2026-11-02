@@ -1,6 +1,8 @@
 project_id                   = "your-google-cloud-project-id"
 state_bucket                 = "your-existing-terraform-state-bucket"
-atlantis_domain              = "atlantis.your-domain.example"
+# Leave empty to use the generated <static-ip>.nip.io HTTPS hostname.
+# Set this to a DNS name you own if you want to use your own domain.
+atlantis_domain              = ""
 github_app_id                = "123456"
 github_app_installation_id   = "12345678"
 github_api_user              = "your-atlantis-app[bot]"

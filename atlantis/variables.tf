@@ -27,8 +27,9 @@ variable "state_bucket" {
 }
 
 variable "atlantis_domain" {
-  description = "DNS name that resolves to the Atlantis static IP and serves HTTPS."
+  description = "Optional owned DNS name. If empty, use the static IP with nip.io for a lab hostname."
   type        = string
+  default     = ""
 }
 
 variable "github_repository" {
