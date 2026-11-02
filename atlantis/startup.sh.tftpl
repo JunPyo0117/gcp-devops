@@ -51,19 +51,6 @@ docker pull caddy:2.10.2
 cat > /etc/atlantis/atlantis.env <<EOF
 ATLANTIS_GH_WEBHOOK_SECRET=$WEBHOOK_SECRET
 TF_VAR_project_id=${project_id}
-TF_VAR_state_bucket=${state_bucket}
-TF_VAR_atlantis_domain=${atlantis_domain}
-TF_VAR_github_app_id=${github_app_id}
-TF_VAR_github_app_installation_id=${github_app_installation_id}
-TF_VAR_github_repository=${github_repository}
-TF_VAR_github_admin_user=${github_admin_user}
-TF_VAR_github_api_user=${github_api_user}
-TF_VAR_github_app_key_secret_id=${github_app_key_secret_id}
-TF_VAR_github_webhook_secret_id=${github_webhook_secret_id}
-TF_VAR_atlantis_ui_password_secret_id=${atlantis_ui_password_secret_id}
-TF_VAR_machine_type=${machine_type}
-TF_VAR_atlantis_version=${atlantis_version}
-TF_VAR_terraform_version=${terraform_version}
 TF_CLI_ARGS_init=-backend-config=bucket=${state_bucket}
 EOF
 chmod 0600 /etc/atlantis/atlantis.env
@@ -107,6 +94,7 @@ docker run -d \
   --gh-app-id="${github_app_id}" \
   --gh-app-installation-id="${github_app_installation_id}" \
   --gh-app-key-file=/run/secrets/github-app-key.pem \
+  --allow-commands=plan \
   --write-git-creds \
   --default-tf-version="${terraform_version}" \
   --repo-config=/etc/atlantis/repos.yaml \
