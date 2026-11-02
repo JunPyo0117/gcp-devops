@@ -26,6 +26,11 @@ variable "state_bucket" {
   type        = string
 }
 
+variable "atlantis_domain" {
+  description = "DNS name that resolves to the Atlantis static IP and serves HTTPS."
+  type        = string
+}
+
 variable "github_repository" {
   description = "Only this GitHub repository is allowed to use this Atlantis server."
   type        = string

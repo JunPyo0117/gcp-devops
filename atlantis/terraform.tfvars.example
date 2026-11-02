@@ -1,5 +1,6 @@
 project_id                   = "your-google-cloud-project-id"
 state_bucket                 = "your-existing-terraform-state-bucket"
+atlantis_domain              = "atlantis.your-domain.example"
 github_app_id                = "123456"
 github_app_installation_id   = "12345678"
 github_api_user              = "your-atlantis-app[bot]"
