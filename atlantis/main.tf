@@ -42,8 +42,8 @@ resource "google_compute_address" "atlantis" {
   depends_on = [google_project_service.services]
 }
 
-resource "google_compute_firewall" "https" {
-  name          = "${var.name}-https"
+resource "google_compute_firewall" "atlantis_http" {
+  name          = "${var.name}-http"
   network       = google_compute_network.atlantis.name
   direction     = "INGRESS"
   source_ranges = ["0.0.0.0/0"]
@@ -51,7 +51,7 @@ resource "google_compute_firewall" "https" {
 
   allow {
     protocol = "tcp"
-    ports    = ["80", "443"]
+    ports    = ["4141"]
   }
 }
 
@@ -138,7 +138,7 @@ resource "google_compute_instance" "atlantis" {
 
   metadata_startup_script = templatefile("${path.module}/startup.sh.tftpl", {
     project_id                     = var.project_id
-    atlantis_domain                = var.atlantis_domain
+    atlantis_ip                    = google_compute_address.atlantis.address
     github_repository              = var.github_repository
     github_admin_user              = var.github_admin_user
     github_api_user                = var.github_api_user

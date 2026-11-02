@@ -1,20 +1,19 @@
 # Atlantis server on GCP
 
-This Terraform root provisions a small Debian Compute Engine VM in Seoul with a reserved external IP, Caddy-managed HTTPS, OS Login over IAP (no public SSH), a dedicated runtime service account, and Secret Manager access. Atlantis is pinned to `v0.49.0`; its default Terraform version is pinned in variables. Caddy serves the webhook endpoint over HTTPS and protects the browser UI with Basic Auth.
+This Terraform root provisions a small Debian Compute Engine VM in Seoul with a reserved external IP, direct HTTP access on port 4141, OS Login over IAP (no public SSH), a dedicated runtime service account, and Secret Manager access. Atlantis is pinned to `v0.49.0`; its default Terraform version is pinned in variables. Atlantis Basic Auth protects the browser UI.
 
-The Atlantis VM's service account can create GKE clusters, networks, enable project APIs, and read/write Terraform state. Treat the server and this public repository as privileged infrastructure. The GitHub App is restricted to the repository, fork PR execution is disabled, and server-side policy restricts apply/import/state changes to the configured admin user. Repo-defined workflows are disabled; only the fixed workflows in the server-side config are accepted.
+This is a **test-only HTTP setup**. The UI password and GitHub webhook signature travel without transport encryption and can be intercepted. Do not use production credentials or sensitive workloads. The Atlantis VM's service account can create GKE clusters, networks, enable project APIs, and read/write Terraform state. Treat the server and this public repository as privileged infrastructure. The GitHub App is restricted to the repository, fork PR execution is disabled, and server-side policy restricts apply/import/state changes to the configured admin user. Repo-defined workflows are disabled; only the fixed workflows in the server-side config are accepted.
 
 ## Prerequisites
 
 - A GCP project with billing enabled and `gcloud`, Terraform 1.5+, and GitHub admin access.
 - A globally unique GCS bucket already created for remote state, with object versioning enabled.
-- A domain name you control. The VM gets a static IP; create its DNS A record after the first apply.
 - A GitHub App installed only on `JunPyo0117/gcp-devops` (or the repository configured in `github_repository`).
 - Your Google account needs permission to create the resources. To SSH through IAP, grant your account `roles/iap.tunnelResourceAccessor` and `roles/compute.osLogin` (plus `roles/compute.viewer` if needed).
 
 ## Prepare GitHub and secrets
 
-Create a GitHub App and set its webhook URL to `https://YOUR_DOMAIN/events`. Enable a webhook secret. Grant the app the Atlantis GitHub permissions: Administration read-only, Checks read/write, Commit statuses read/write, Contents read/write, Issues read/write, Metadata read-only, Pull requests read/write, Webhooks read/write, Members read-only, and Actions read-only. Install it only on this repository and record its App ID, Installation ID, private key PEM, and webhook secret.
+Create a GitHub App. Use `https://github.com/JunPyo0117/gcp-devops` as its homepage URL, leave OAuth redirect URIs blank, and do not request user authorization or device flow. Keep its webhook inactive until Terraform creates the VM and returns its IP. Grant the app the Atlantis GitHub permissions: Administration read-only, Checks read/write, Commit statuses read/write, Contents read/write, Issues read/write, Metadata read-only, Pull requests read/write, Webhooks read/write, Members read-only, and Actions read-only. Install it only on this repository and record its App ID, Installation ID, private key PEM, and webhook secret.
 
 Enable Secret Manager and create the three secrets before applying this Terraform root. Create a strong, unique UI password for Basic Auth. Add actual secret versions; Terraform never handles secret values:
 
@@ -32,16 +31,16 @@ printf '%s' 'YOUR_LONG_RANDOM_UI_PASSWORD' | gcloud secrets versions add gcp-dev
 
 ```sh
 cp terraform.tfvars.example terraform.tfvars
-# Set project_id, state_bucket, atlantis_domain, github_app_id, and github_app_installation_id.
+# Set project_id, state_bucket, github_app_id, and github_app_installation_id.
 # Set github_api_user to the GitHub App bot login (usually <app-slug>[bot]).
 terraform init -backend-config="bucket=YOUR_UNIQUE_STATE_BUCKET" -backend-config="prefix=atlantis/terraform/state"
 terraform plan
 terraform apply
 ```
 
-Create an A record for `atlantis_domain` pointing to the `atlantis_ip` output. Caddy will request and renew a public TLS certificate; ports 80 and 443 must be reachable. The VM startup script installs Docker and Google Cloud CLI, reads secrets at boot, then starts Atlantis and Caddy.
+The VM startup script installs Docker and Google Cloud CLI, reads secrets at boot, then starts Atlantis on port 4141. In the GitHub App settings, activate its webhook and set the URL to the `github_webhook_url` output (`http://PUBLIC_IP:4141/events`). Disable SSL verification for this test endpoint, select Pull requests, Issue comments, Pull request reviews, and Push events, then save. The App ID and Installation ID are available in the app settings and installation page.
 
-In GitHub App settings, confirm the webhook endpoint and install scope. Open `https://YOUR_DOMAIN` and sign in with username `admin` and the UI password stored in Secret Manager. Only the configured `github_admin_user` can issue apply/import/state modification commands.
+Open the `atlantis_url` output and sign in with username `admin` and the UI password stored in Secret Manager. Only the configured `github_admin_user` can issue apply/import/state modification commands.
 
 ## State and PR behavior
 
@@ -49,6 +48,6 @@ The server-side Atlantis config allows only the fixed GKE workflow and rejects r
 
 Do not enable `--allow-fork-prs` for this public repository. Limit write access and protect `main`; Terraform plans execute code from same-repository PRs with the Atlantis service account's GCP permissions. Applies remain explicit via `atlantis apply` and are limited to the configured admin.
 
-To inspect startup logs, use the `iap_ssh_command` output and then `sudo journalctl -t atlantis-startup` or `docker logs atlantis` / `docker logs caddy`.
+To inspect startup logs, use the `iap_ssh_command` output and then `sudo journalctl -t atlantis-startup` or `docker logs atlantis`.
 
 To remove the VM and network, run `terraform destroy` from this directory. This does not delete the shared state bucket or Secret Manager secrets. The reserved IP is deleted with the Terraform resources.

@@ -17,7 +17,7 @@ apt-get update
 apt-get install -y google-cloud-cli
 systemctl enable --now docker
 
-mkdir -p /etc/atlantis/secrets /var/lib/caddy/data /var/lib/caddy/config
+mkdir -p /etc/atlantis/secrets
 chown root:1000 /etc/atlantis/secrets
 chmod 0750 /etc/atlantis/secrets
 install -d -o 100 -g 1000 -m 0750 /var/lib/atlantis
@@ -46,13 +46,14 @@ chmod 0440 /etc/atlantis/secrets/github-app-key.pem
 
 WEBHOOK_SECRET="$(cat /etc/atlantis/secrets/webhook-secret)"
 UI_PASSWORD="$(cat /etc/atlantis/secrets/ui-password)"
-UI_PASSWORD_HASH="$(docker run --rm --entrypoint caddy caddy:2.10.2 hash-password --plaintext "$UI_PASSWORD")"
 
 cat > /etc/atlantis/atlantis.env <<EOF
 ATLANTIS_GH_WEBHOOK_SECRET=$WEBHOOK_SECRET
+ATLANTIS_WEB_BASIC_AUTH=true
+ATLANTIS_WEB_USERNAME=admin
+ATLANTIS_WEB_PASSWORD=$UI_PASSWORD
 TF_VAR_project_id=${project_id}
 TF_VAR_state_bucket=${state_bucket}
-TF_VAR_atlantis_domain=${atlantis_domain}
 TF_VAR_github_app_id=${github_app_id}
 TF_VAR_github_app_installation_id=${github_app_installation_id}
 TF_VAR_github_repository=${github_repository}
@@ -68,39 +69,21 @@ TF_CLI_ARGS_init=-backend-config=bucket=${state_bucket}
 EOF
 chmod 0600 /etc/atlantis/atlantis.env
 
-cat > /etc/atlantis/Caddyfile <<'EOF'
-${atlantis_domain} {
-  @github_events path /events
-  handle @github_events {
-    reverse_proxy atlantis:4141
-  }
-  handle {
-    basic_auth {
-      admin {$ATLANTIS_UI_PASSWORD_HASH}
-    }
-    reverse_proxy atlantis:4141
-  }
-}
-EOF
-
-docker network inspect atlantis >/dev/null 2>&1 || docker network create atlantis
 docker pull "ghcr.io/runatlantis/atlantis:${atlantis_version}"
-docker pull caddy:2.10.2
-docker rm -f atlantis caddy >/dev/null 2>&1 || true
+docker rm -f atlantis >/dev/null 2>&1 || true
 
 docker run -d \
   --name atlantis \
   --restart unless-stopped \
-  --network atlantis \
+  -p 4141:4141 \
   --env-file /etc/atlantis/atlantis.env \
-  -e ATLANTIS_UI_PASSWORD_HASH="$UI_PASSWORD_HASH" \
   -v /etc/atlantis/secrets/github-app-key.pem:/run/secrets/github-app-key.pem:ro \
   -v /etc/atlantis/repos.yaml:/etc/atlantis/repos.yaml:ro \
   -v /etc/atlantis/authorize.sh:/etc/atlantis/authorize.sh:ro \
   -v /var/lib/atlantis:/atlantis \
   "ghcr.io/runatlantis/atlantis:${atlantis_version}" \
   server \
-  --atlantis-url="https://${atlantis_domain}" \
+  --atlantis-url="http://${atlantis_ip}:4141" \
   --repo-allowlist="github.com/${github_repository}" \
   --gh-user="${github_api_user}" \
   --gh-app-id="${github_app_id}" \
@@ -113,14 +96,3 @@ docker run -d \
   --parallel-pool-size=1 \
   --data-dir=/atlantis \
   --port=4141
-
-docker run -d \
-  --name caddy \
-  --restart unless-stopped \
-  --network atlantis \
-  -p 80:80 -p 443:443 \
-  -e ATLANTIS_UI_PASSWORD_HASH="$UI_PASSWORD_HASH" \
-  -v /etc/atlantis/Caddyfile:/etc/caddy/Caddyfile:ro \
-  -v /var/lib/caddy/data:/data \
-  -v /var/lib/caddy/config:/config \
-  caddy:2.10.2
