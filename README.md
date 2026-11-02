@@ -14,6 +14,12 @@ GKE manages the Kubernetes control plane; it is not a VM that you size or admini
 
 Before initializing Terraform, configure a GCS bucket for the remote state. The bucket must already exist and be accessible to your Google credentials. The GCS backend supports state locking; enable object versioning on the bucket so previous state versions can be recovered.
 
+Enable the bootstrap APIs before Terraform manages project services (the Atlantis setup also enables these):
+
+```sh
+gcloud services enable cloudresourcemanager.googleapis.com serviceusage.googleapis.com --project=YOUR_PROJECT_ID
+```
+
 For local use, pass the bucket and state prefix to `terraform init` (replace the example bucket with your globally unique bucket name):
 
 ```sh
@@ -42,6 +48,6 @@ To remove the resources, run `terraform destroy`. API services are intentionally
 
 ## Atlantis
 
-`atlantis.yaml` runs automatic plans for the GKE cluster. Atlantis does not automatically apply changes; an authorized user must comment `atlantis apply` on the pull request. The Atlantis server's own Terraform root is managed locally so the server cannot modify its own IAM permissions.
+`atlantis.yaml` runs automatic plans for the GKE cluster. A signed-webhook gateway only forwards pull request and comment events from the configured GitHub user; that user can comment `atlantis apply` after reviewing a successful plan. The Atlantis server's own Terraform root is managed locally so the server cannot modify its own IAM permissions.
 
 The Atlantis VM is defined separately in [`atlantis/`](atlantis/README.md). It uses a Seoul Compute Engine VM, a domain with Caddy-managed HTTPS, OS Login over IAP for SSH, Secret Manager for GitHub credentials, and a dedicated service account. Create the shared GCS state bucket before initializing either Terraform root. Keep Atlantis restricted to this repository and disable fork PRs: Atlantis runs Terraform with permissions to change GCP resources.

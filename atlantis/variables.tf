@@ -39,7 +39,7 @@ variable "github_repository" {
 }
 
 variable "github_admin_user" {
-  description = "GitHub username permitted to run Atlantis apply/import/state modification commands."
+  description = "Only GitHub username whose signed webhook events are forwarded to Atlantis."
   type        = string
   default     = "JunPyo0117"
 }
@@ -55,7 +55,7 @@ variable "github_app_installation_id" {
 }
 
 variable "github_api_user" {
-  description = "GitHub username used for Atlantis API attribution (normally the GitHub App bot login)."
+  description = "Legacy setting retained for existing tfvars; unused with GitHub App authentication."
   type        = string
   default     = "atlantis[bot]"
 }

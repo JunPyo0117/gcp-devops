@@ -1,3 +1,4 @@
+# Atlantis smoke test: this comment should produce a no-op Terraform plan.
 resource "google_project_service" "services" {
   for_each = toset([
     "compute.googleapis.com",
