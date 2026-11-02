@@ -19,7 +19,7 @@ Create a GitHub App. Use `https://github.com/JunPyo0117/gcp-devops` as its homep
 Enable Secret Manager and create the three secrets before applying this Terraform root. Create a strong, unique UI password for Basic Auth. Add actual secret versions; Terraform never handles secret values:
 
 ```sh
-gcloud services enable secretmanager.googleapis.com --project=YOUR_PROJECT_ID
+gcloud services enable cloudresourcemanager.googleapis.com serviceusage.googleapis.com secretmanager.googleapis.com --project=YOUR_PROJECT_ID
 gcloud secrets create gcp-devops-atlantis-github-app-key --replication-policy=automatic --project=YOUR_PROJECT_ID
 gcloud secrets create gcp-devops-atlantis-webhook-secret --replication-policy=automatic --project=YOUR_PROJECT_ID
 gcloud secrets create gcp-devops-atlantis-ui-password --replication-policy=automatic --project=YOUR_PROJECT_ID

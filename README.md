@@ -14,6 +14,12 @@ GKE manages the Kubernetes control plane; it is not a VM that you size or admini
 
 Before initializing Terraform, configure a GCS bucket for the remote state. The bucket must already exist and be accessible to your Google credentials. The GCS backend supports state locking; enable object versioning on the bucket so previous state versions can be recovered.
 
+Enable the bootstrap APIs before Terraform manages project services (the Atlantis setup also enables these):
+
+```sh
+gcloud services enable cloudresourcemanager.googleapis.com serviceusage.googleapis.com --project=YOUR_PROJECT_ID
+```
+
 For local use, pass the bucket and state prefix to `terraform init` (replace the example bucket with your globally unique bucket name):
 
 ```sh

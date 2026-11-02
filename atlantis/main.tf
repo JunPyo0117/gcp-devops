@@ -10,6 +10,7 @@ locals {
 
 resource "google_project_service" "services" {
   for_each = toset([
+    "cloudresourcemanager.googleapis.com",
     "compute.googleapis.com",
     "iap.googleapis.com",
     "iam.googleapis.com",
