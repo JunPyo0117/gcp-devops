@@ -143,7 +143,6 @@ resource "google_compute_instance" "atlantis" {
     atlantis_domain                = local.atlantis_domain
     github_repository              = var.github_repository
     github_admin_user              = var.github_admin_user
-    github_api_user                = var.github_api_user
     github_app_id                  = var.github_app_id
     github_app_installation_id     = var.github_app_installation_id
     state_bucket                   = var.state_bucket
@@ -152,12 +151,9 @@ resource "google_compute_instance" "atlantis" {
     atlantis_ui_password_secret_id = var.atlantis_ui_password_secret_id
     atlantis_version               = var.atlantis_version
     terraform_version              = var.terraform_version
-    machine_type                   = var.machine_type
+    webhook_gateway_script         = file("${path.module}/webhook-gateway.py")
     repo_config = templatefile("${path.module}/repos.yaml.tftpl", {
       github_repository = var.github_repository
-    })
-    auth_script = templatefile("${path.module}/authorize.sh.tftpl", {
-      github_admin_user = var.github_admin_user
     })
   })
 

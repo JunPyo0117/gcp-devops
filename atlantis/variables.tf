@@ -39,7 +39,7 @@ variable "github_repository" {
 }
 
 variable "github_admin_user" {
-  description = "GitHub username permitted to run Atlantis apply/import/state modification commands."
+  description = "Only GitHub username whose signed webhook events are forwarded to Atlantis."
   type        = string
   default     = "JunPyo0117"
 }

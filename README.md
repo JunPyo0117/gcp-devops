@@ -42,6 +42,6 @@ To remove the resources, run `terraform destroy`. API services are intentionally
 
 ## Atlantis
 
-`atlantis.yaml` runs automatic plans for the GKE cluster. Atlantis does not automatically apply changes; an authorized user must comment `atlantis apply` on the pull request. The Atlantis server's own Terraform root is managed locally so the server cannot modify its own IAM permissions.
+`atlantis.yaml` runs automatic plans for the GKE cluster. A signed-webhook gateway only forwards pull request and comment events from the configured GitHub user; that user can comment `atlantis apply` after reviewing a successful plan. The Atlantis server's own Terraform root is managed locally so the server cannot modify its own IAM permissions.
 
 The Atlantis VM is defined separately in [`atlantis/`](atlantis/README.md). It uses a Seoul Compute Engine VM, a domain with Caddy-managed HTTPS, OS Login over IAP for SSH, Secret Manager for GitHub credentials, and a dedicated service account. Create the shared GCS state bucket before initializing either Terraform root. Keep Atlantis restricted to this repository and disable fork PRs: Atlantis runs Terraform with permissions to change GCP resources.

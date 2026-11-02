@@ -2,7 +2,7 @@
 
 This Terraform root provisions a small Debian Compute Engine VM in Seoul with a reserved external IP, Caddy-managed HTTPS, OS Login over IAP (no public SSH), a dedicated runtime service account, and Secret Manager access. Atlantis is pinned to `v0.49.0`; its default Terraform version is pinned in variables. Caddy protects the browser UI with Basic Auth and forwards the GitHub webhook endpoint to Atlantis.
 
-The Atlantis VM's service account can create GKE clusters, networks, enable project APIs, and read/write Terraform state. Treat the server and this public repository as privileged infrastructure. The GitHub App is restricted to the repository and fork PR execution is disabled. This personal-account lab configuration allows `plan` only because Atlantis team authorization requires GitHub organization teams; `apply`, `import`, and state-changing commands are disabled. Repo-defined workflows are disabled; only the fixed workflows in the server-side config are accepted.
+The Atlantis VM's service account can create GKE clusters, networks, enable project APIs, and read/write Terraform state. Treat the server and this public repository as privileged infrastructure. The GitHub App is restricted to the repository and fork PR execution is disabled. A small webhook gateway validates GitHub's HMAC signature and forwards only pull request and pull request comment events created by `github_admin_user`; Atlantis allows that user to run plan/apply/unlock/version/cancel commands. Import and state commands remain disabled. Repo-defined workflows are disabled; only the fixed workflows in the server-side config are accepted.
 
 ## Prerequisites
 
@@ -43,7 +43,9 @@ After apply, the default `atlantis_url` is based on the static IP and `nip.io`; 
 
 The default `nip.io` name depends on a third-party wildcard DNS service and is for learning only. Use a domain you control for a durable deployment.
 
-Open the `atlantis_url` output and sign in with username `admin` and the UI password stored in Secret Manager. For `apply` permissions restricted to GitHub teams, use a GitHub Organization and configure Atlantis team authorization.
+Open the `atlantis_url` output and sign in with username `admin` and the UI password stored in Secret Manager. GitHub App webhook deliveries pass through the gateway at `/events`; it returns 401 for invalid signatures, acknowledges unsupported or unauthorized events with 202, and forwards authorized pull request/comment events to Atlantis. Only the configured GitHub username's signed events can trigger Atlantis commands, even while this repository is public.
+
+The gateway request and response contract is documented in [`WEBHOOK_GATEWAY.md`](WEBHOOK_GATEWAY.md).
 
 ## State and PR behavior
 

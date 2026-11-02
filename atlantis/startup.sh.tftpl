@@ -25,11 +25,10 @@ install -d -o 100 -g 1000 -m 0750 /var/lib/atlantis
 cat > /etc/atlantis/repos.yaml <<'EOF'
 ${repo_config}
 EOF
-cat > /etc/atlantis/authorize.sh <<'EOF'
-${auth_script}
-EOF
-chmod 0644 /etc/atlantis/repos.yaml
-chmod 0755 /etc/atlantis/authorize.sh
+cat > /etc/atlantis/webhook-gateway.py <<'PYTHON_GATEWAY'
+${webhook_gateway_script}
+PYTHON_GATEWAY
+chmod 0644 /etc/atlantis/repos.yaml /etc/atlantis/webhook-gateway.py
 
 gcloud secrets versions access latest \
   --secret="${github_app_key_secret_id}" --project="${project_id}" \
@@ -43,10 +42,13 @@ gcloud secrets versions access latest \
 chmod 0600 /etc/atlantis/secrets/*
 chown root:1000 /etc/atlantis/secrets/github-app-key.pem
 chmod 0440 /etc/atlantis/secrets/github-app-key.pem
+chown root:1000 /etc/atlantis/secrets/webhook-secret
+chmod 0440 /etc/atlantis/secrets/webhook-secret
 
 WEBHOOK_SECRET="$(cat /etc/atlantis/secrets/webhook-secret)"
 UI_PASSWORD="$(cat /etc/atlantis/secrets/ui-password)"
 docker pull caddy:2.10.2
+docker pull python:3.12-slim-bookworm
 
 cat > /etc/atlantis/atlantis.env <<EOF
 ATLANTIS_GH_WEBHOOK_SECRET=$WEBHOOK_SECRET
@@ -61,7 +63,7 @@ cat > /etc/atlantis/Caddyfile <<'EOF'
 ${atlantis_domain} {
   @github_events path /events
   handle @github_events {
-    reverse_proxy atlantis:4141
+    reverse_proxy webhook-gateway:8080
   }
   handle {
     basic_auth {
@@ -75,6 +77,7 @@ chmod 0644 /etc/atlantis/Caddyfile
 
 docker pull "ghcr.io/runatlantis/atlantis:${atlantis_version}"
 docker rm -f atlantis >/dev/null 2>&1 || true
+docker rm -f webhook-gateway >/dev/null 2>&1 || true
 docker rm -f caddy >/dev/null 2>&1 || true
 docker network inspect atlantis >/dev/null 2>&1 || docker network create atlantis
 
@@ -85,7 +88,6 @@ docker run -d \
   --env-file /etc/atlantis/atlantis.env \
   -v /etc/atlantis/secrets/github-app-key.pem:/run/secrets/github-app-key.pem:ro \
   -v /etc/atlantis/repos.yaml:/etc/atlantis/repos.yaml:ro \
-  -v /etc/atlantis/authorize.sh:/etc/atlantis/authorize.sh:ro \
   -v /var/lib/atlantis:/atlantis \
   "ghcr.io/runatlantis/atlantis:${atlantis_version}" \
   server \
@@ -94,7 +96,7 @@ docker run -d \
   --gh-app-id="${github_app_id}" \
   --gh-app-installation-id="${github_app_installation_id}" \
   --gh-app-key-file=/run/secrets/github-app-key.pem \
-  --allow-commands=plan \
+  --allow-commands=plan,apply,unlock,version,cancel \
   --write-git-creds \
   --default-tf-version="${terraform_version}" \
   --repo-config=/etc/atlantis/repos.yaml \
@@ -102,6 +104,19 @@ docker run -d \
   --parallel-pool-size=1 \
   --data-dir=/atlantis \
   --port=4141
+
+docker run -d \
+  --name webhook-gateway \
+  --restart unless-stopped \
+  --network atlantis \
+  --user 1000:1000 \
+  -e GITHUB_ALLOWED_USER="${github_admin_user}" \
+  -e GITHUB_REPOSITORY="${github_repository}" \
+  -e GITHUB_WEBHOOK_SECRET_FILE=/run/secrets/webhook-secret \
+  -e ATLANTIS_EVENTS_URL=http://atlantis:4141/events \
+  -v /etc/atlantis/webhook-gateway.py:/app/webhook_gateway.py:ro \
+  -v /etc/atlantis/secrets/webhook-secret:/run/secrets/webhook-secret:ro \
+  python:3.12-slim-bookworm python /app/webhook_gateway.py
 
 docker run -d \
   --name caddy \
