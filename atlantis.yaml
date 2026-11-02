@@ -4,6 +4,7 @@ projects:
   - name: gke-seoul
     dir: .
     workspace: default
+    workflow: gke
     autoplan:
       enabled: true
       when_modified:

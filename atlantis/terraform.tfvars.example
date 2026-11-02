@@ -1,0 +1,10 @@
+project_id                   = "your-google-cloud-project-id"
+state_bucket                 = "your-existing-terraform-state-bucket"
+atlantis_domain              = "atlantis.example.com"
+github_app_id                = "123456"
+github_app_installation_id   = "12345678"
+github_api_user              = "your-atlantis-app[bot]"
+
+# Defaults use Seoul (asia-northeast3-a) and an e2-small VM.
+# github_repository = "JunPyo0117/gcp-devops"
+# github_admin_user = "JunPyo0117"

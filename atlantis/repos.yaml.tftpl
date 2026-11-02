@@ -1,0 +1,24 @@
+repos:
+  - id: "github.com/${github_repository}"
+    plan_requirements: [mergeable]
+    apply_requirements: [mergeable, undiverged]
+    allowed_overrides: [workflow]
+    allowed_workflows: [gke]
+    allow_custom_workflows: false
+    repo_locks:
+      mode: on_plan
+
+workflows:
+  gke:
+    plan:
+      steps:
+        - init:
+            extra_args: ["-backend-config=prefix=gke/terraform/state"]
+        - plan
+    apply:
+      steps:
+        - init:
+            extra_args: ["-backend-config=prefix=gke/terraform/state"]
+        - apply
+team_authz:
+  command: /etc/atlantis/authorize.sh

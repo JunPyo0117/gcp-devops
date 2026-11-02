@@ -42,11 +42,6 @@ To remove the resources, run `terraform destroy`. API services are intentionally
 
 ## Atlantis
 
-`atlantis.yaml` enables automatic plans for pull requests that change Terraform files. Atlantis does not automatically apply changes; an authorized reviewer must comment `atlantis apply` on the pull request.
+`atlantis.yaml` runs automatic plans for the GKE cluster. Atlantis does not automatically apply changes; an authorized user must comment `atlantis apply` on the pull request. The Atlantis server's own Terraform root is managed locally so the server cannot modify its own IAM permissions.
 
-To run Atlantis, deploy an Atlantis server and configure its GitHub webhook credentials and repo allowlist for `github.com/JunPyo0117/gcp-devops`. Give the server identity the required Google Cloud permissions through Application Default Credentials or Workload Identity. Set these environment variables on the Atlantis server:
-
-- `TF_VAR_project_id`: the target Google Cloud project ID.
-- `TF_CLI_ARGS_init`: `-backend-config=bucket=YOUR_UNIQUE_STATE_BUCKET -backend-config=prefix=gke/terraform/state`
-
-Create the GCS state bucket before the first plan, enable object versioning, and grant the Atlantis identity access to it. Keep webhook secrets and credentials in the Atlantis host's secret manager/environment, never in this repository. The same backend bucket and prefix must be used for local Terraform runs and Atlantis.
+The Atlantis VM is defined separately in [`atlantis/`](atlantis/README.md). It uses a Seoul Compute Engine VM, a static external IP, Caddy-managed HTTPS, OS Login over IAP for SSH, Secret Manager for GitHub credentials, and a dedicated service account. Create the shared GCS state bucket before initializing either Terraform root. Keep the public repository's Atlantis installation restricted to this repository, disable fork PRs, and protect `main` with required review: Atlantis runs Terraform with permissions to change GCP resources.

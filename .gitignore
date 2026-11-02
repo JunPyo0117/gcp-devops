@@ -3,4 +3,5 @@
 *.tfstate.*
 *.tfplan
 terraform.tfvars
+atlantis/terraform.tfvars
 crash.log

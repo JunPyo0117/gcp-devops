@@ -1,0 +1,16 @@
+#!/bin/sh
+
+case "$${COMMAND_NAME:-}" in
+  apply|import|state*)
+    if [ "$${USER_NAME:-}" = "${github_admin_user}" ]; then
+      echo "pass"
+      exit 0
+    fi
+    echo "Only ${github_admin_user} may run $${COMMAND_NAME}."
+    exit 0
+    ;;
+  *)
+    echo "pass"
+    exit 0
+    ;;
+esac

@@ -1,0 +1,126 @@
+#!/bin/bash
+set -euo pipefail
+
+exec > >(tee -a /var/log/atlantis-startup.log | logger -t atlantis-startup -s 2>/dev/console) 2>&1
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y ca-certificates curl docker.io gnupg
+
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+  | gpg --dearmor --yes -o /etc/apt/keyrings/google-cloud.gpg
+chmod a+r /etc/apt/keyrings/google-cloud.gpg
+echo "deb [signed-by=/etc/apt/keyrings/google-cloud.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
+  > /etc/apt/sources.list.d/google-cloud-sdk.list
+apt-get update
+apt-get install -y google-cloud-cli
+systemctl enable --now docker
+
+mkdir -p /etc/atlantis/secrets /var/lib/caddy/data /var/lib/caddy/config
+chown root:1000 /etc/atlantis/secrets
+chmod 0750 /etc/atlantis/secrets
+install -d -o 100 -g 1000 -m 0750 /var/lib/atlantis
+
+cat > /etc/atlantis/repos.yaml <<'EOF'
+${repo_config}
+EOF
+cat > /etc/atlantis/authorize.sh <<'EOF'
+${auth_script}
+EOF
+chmod 0644 /etc/atlantis/repos.yaml
+chmod 0755 /etc/atlantis/authorize.sh
+
+gcloud secrets versions access latest \
+  --secret="${github_app_key_secret_id}" --project="${project_id}" \
+  > /etc/atlantis/secrets/github-app-key.pem
+gcloud secrets versions access latest \
+  --secret="${github_webhook_secret_id}" --project="${project_id}" \
+  > /etc/atlantis/secrets/webhook-secret
+gcloud secrets versions access latest \
+  --secret="${atlantis_ui_password_secret_id}" --project="${project_id}" \
+  > /etc/atlantis/secrets/ui-password
+chmod 0600 /etc/atlantis/secrets/*
+chown root:1000 /etc/atlantis/secrets/github-app-key.pem
+chmod 0440 /etc/atlantis/secrets/github-app-key.pem
+
+WEBHOOK_SECRET="$(cat /etc/atlantis/secrets/webhook-secret)"
+UI_PASSWORD="$(cat /etc/atlantis/secrets/ui-password)"
+UI_PASSWORD_HASH="$(docker run --rm --entrypoint caddy caddy:2.10.2 hash-password --plaintext "$UI_PASSWORD")"
+
+cat > /etc/atlantis/atlantis.env <<EOF
+ATLANTIS_GH_WEBHOOK_SECRET=$WEBHOOK_SECRET
+TF_VAR_project_id=${project_id}
+TF_VAR_state_bucket=${state_bucket}
+TF_VAR_atlantis_domain=${atlantis_domain}
+TF_VAR_github_app_id=${github_app_id}
+TF_VAR_github_app_installation_id=${github_app_installation_id}
+TF_VAR_github_repository=${github_repository}
+TF_VAR_github_admin_user=${github_admin_user}
+TF_VAR_github_api_user=${github_api_user}
+TF_VAR_github_app_key_secret_id=${github_app_key_secret_id}
+TF_VAR_github_webhook_secret_id=${github_webhook_secret_id}
+TF_VAR_atlantis_ui_password_secret_id=${atlantis_ui_password_secret_id}
+TF_VAR_machine_type=${machine_type}
+TF_VAR_atlantis_version=${atlantis_version}
+TF_VAR_terraform_version=${terraform_version}
+TF_CLI_ARGS_init=-backend-config=bucket=${state_bucket}
+EOF
+chmod 0600 /etc/atlantis/atlantis.env
+
+cat > /etc/atlantis/Caddyfile <<'EOF'
+${atlantis_domain} {
+  @github_events path /events
+  handle @github_events {
+    reverse_proxy atlantis:4141
+  }
+  handle {
+    basic_auth {
+      admin {$ATLANTIS_UI_PASSWORD_HASH}
+    }
+    reverse_proxy atlantis:4141
+  }
+}
+EOF
+
+docker network inspect atlantis >/dev/null 2>&1 || docker network create atlantis
+docker pull "ghcr.io/runatlantis/atlantis:${atlantis_version}"
+docker pull caddy:2.10.2
+docker rm -f atlantis caddy >/dev/null 2>&1 || true
+
+docker run -d \
+  --name atlantis \
+  --restart unless-stopped \
+  --network atlantis \
+  --env-file /etc/atlantis/atlantis.env \
+  -e ATLANTIS_UI_PASSWORD_HASH="$UI_PASSWORD_HASH" \
+  -v /etc/atlantis/secrets/github-app-key.pem:/run/secrets/github-app-key.pem:ro \
+  -v /etc/atlantis/repos.yaml:/etc/atlantis/repos.yaml:ro \
+  -v /etc/atlantis/authorize.sh:/etc/atlantis/authorize.sh:ro \
+  -v /var/lib/atlantis:/atlantis \
+  "ghcr.io/runatlantis/atlantis:${atlantis_version}" \
+  server \
+  --atlantis-url="https://${atlantis_domain}" \
+  --repo-allowlist="github.com/${github_repository}" \
+  --gh-user="${github_api_user}" \
+  --gh-app-id="${github_app_id}" \
+  --gh-app-installation-id="${github_app_installation_id}" \
+  --gh-app-key-file=/run/secrets/github-app-key.pem \
+  --write-git-creds \
+  --default-tf-version="${terraform_version}" \
+  --repo-config=/etc/atlantis/repos.yaml \
+  --allow-fork-prs=false \
+  --parallel-pool-size=1 \
+  --data-dir=/atlantis \
+  --port=4141
+
+docker run -d \
+  --name caddy \
+  --restart unless-stopped \
+  --network atlantis \
+  -p 80:80 -p 443:443 \
+  -e ATLANTIS_UI_PASSWORD_HASH="$UI_PASSWORD_HASH" \
+  -v /etc/atlantis/Caddyfile:/etc/caddy/Caddyfile:ro \
+  -v /var/lib/caddy/data:/data \
+  -v /var/lib/caddy/config:/config \
+  caddy:2.10.2
