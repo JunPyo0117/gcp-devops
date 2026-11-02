@@ -22,9 +22,9 @@ variable "cluster_name" {
 }
 
 variable "machine_type" {
-  description = "Machine type used by each worker node."
+  description = "Machine type used by each worker node. e2-small provides more memory for learning workloads."
   type        = string
-  default     = "e2-micro"
+  default     = "e2-small"
 }
 
 variable "worker_count" {
