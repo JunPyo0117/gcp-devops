@@ -56,3 +56,11 @@ Do not enable `--allow-fork-prs` for this public repository. Limit write access 
 To inspect startup logs, use the `iap_ssh_command` output and then `sudo journalctl -t atlantis-startup` or `docker logs atlantis`.
 
 To remove the VM and network, run `terraform destroy` from this directory. This does not delete the shared state bucket or Secret Manager secrets. The reserved IP is deleted with the Terraform resources.
+
+## Atlantis 결과 AI 요약 (선택 사항)
+
+`.github/workflows/atlantis-ai-summary.yml`은 `gke-seoul` 프로젝트의 Atlantis plan/apply 댓글을 감지해 한국어 요약을 별도 댓글로 남깁니다. 워크플로가 기본 브랜치에 머지된 후 GitHub 저장소의 **Settings → Secrets and variables → Actions → New repository secret**에 `OPENAI_API_KEY`를 등록해야 합니다. 키는 Git에 넣지 마세요. OpenAI API 사용에 따른 요금이 발생합니다.
+
+기존 댓글에는 자동으로 소급 적용되지 않습니다. 적용 후 새 plan 또는 apply 댓글이 작성될 때 동작합니다. PR은 저장소 내부 브랜치에서 생성해야 하고, 지정된 Atlantis 앱 계정의 댓글만 처리합니다. 액션은 PR의 코드를 체크아웃하거나 실행하지 않습니다. API에는 Terraform 속성값과 오류 본문을 제외한 리소스 주소, 작업 종류, 결과 개수와 오류 감지 여부만 전송합니다. 따라서 AI가 오류의 구체적인 원인을 진단하거나 세부 속성 변경을 설명할 수 없으며 원본 Atlantis 결과를 직접 검토해야 합니다. 요약 댓글은 공개 저장소에서 공개됩니다.
+
+요약 실패는 Actions 실행 로그에서 확인할 수 있습니다. AI 요약은 Atlantis의 plan이나 apply를 실행하거나 승인하지 않습니다. `gpt-4.1-mini` 모델을 사용할 권한과 API 결제가 필요합니다.
